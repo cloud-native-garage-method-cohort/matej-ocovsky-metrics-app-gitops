@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/name: metrics-app
+  name: app-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/name: metrics-app
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/name: metrics-app
+    app.openshift.io/runtime: js
+  name: metrics-app
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: matej-ocovsky-metrics-app-pipeline
+      app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+      app.kubernetes.io/name: metrics-app
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: matej-ocovsky-metrics-app-pipeline
+        app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+        app.kubernetes.io/name: metrics-app
+    spec:
+      containers:
+      - env:
+        - name: INGRESS_HOST
+        - name: PROTOCOLS
+        - name: LOG_LEVEL
+          value: debug
+        image: image-registry.openshift-image-registry.svc:5000/matej-ocovsky-metrics-app-pipeline/metrics-app:a7b03b54184e2da06bb57dd5cc2a39a03c8b4220
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 3000
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: metrics-app
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Validate=false
+    openshift.io/host.generated: "true"
+  labels:
+    app: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/instance: matej-ocovsky-metrics-app-pipeline
+    app.kubernetes.io/name: metrics-app
+  name: app-route
+spec:
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: app-service
+    weight: 100
+  wildcardPolicy: None
